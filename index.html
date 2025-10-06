@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Media Player</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Lora:ital@0;1&family=Inconsolata&family=Pacifico&display=swap');
+
+        /* --- THEME & COLOR VARIABLES --- */
+        :root {
+            /* Default DARK THEME colors */
+            --primary-color: #00a8ff;
+            --primary-color-dark: #007bb5;
+            --background-color: #121212;
+            --surface-color: #1e1e1e;
+            --text-color-primary: #e0e0e0;
+            --text-color-secondary: #aaaaaa;
+            --border-color: #333333;
+            --controls-bg: rgba(20, 20, 20, 0.7);
+
+            /* Subtitle variables with default values */
+            --subtitle-font-size: 1.25rem;
+            --subtitle-text-color: #ffffff;
+            --subtitle-bg-color: rgba(0, 0, 0, 0.7);
+            --subtitle-text-shadow: none;
+            --subtitle-font-family: 'Inter', sans-serif;
+        }
+
+        /* LIGHT THEME definitions */
+        body[data-theme="light"] {
+            --background-color: #f0f2f5;
+            --surface-color: #ffffff;
+            --text-color-primary: #1c1e21;
+            --text-color-secondary: #606770;
+            --border-color: #dce1e6;
+            --controls-bg: rgba(255, 255, 255, 0.7);
+        }
+
+        /* --- Base Styles --- */
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* --- Header and Theme Switcher --- */
+        .app-wrapper { width: 100%; max-width: 1600px; }
+        .header-container { width: 100%; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .theme-switcher { display: flex; align-items: center; gap: 10px; }
+        .theme-switcher-label { font-size: 0.9em; color: var(--text-color-secondary); }
+        .toggle-switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .4s; border-radius: 26px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(24px); }
+
+        /* --- Main Layout --- */
+        .main-container { display: flex; flex-wrap: wrap; gap: 30px; width: 100%; }
+        .player-wrapper, .playlist-wrapper { background-color: var(--surface-color); border-radius: 12px; padding: 20px; border: 1px solid var(--border-color); transition: background-color 0.3s, border-color 0.3s; }
+        .player-wrapper { flex: 3; min-width: 320px; }
+        .playlist-wrapper { flex: 1; min-width: 300px; display: flex; flex-direction: column; }
+        h1, h2 { color: var(--text-color-primary); transition: color 0.3s; }
+        h1 { margin: 0; text-align: left; font-size: 1.5rem; }
+        h2 { margin-top: 0; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; font-size: 1.2rem; }
+        .instructions { color: var(--text-color-secondary); margin-top: 10px; margin-bottom: 20px; font-size: 0.9em; }
+
+        /* --- Select Folder Button & Playlist --- */
+        .select-folder-btn { display: block; width: 100%; padding: 15px; font-size: 1.1em; font-weight: 500; color: white; background-color: var(--primary-color); border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; transition: background-color 0.3s, transform 0.2s; }
+        .select-folder-btn:hover { background-color: var(--primary-color-dark); transform: translateY(-2px); }
+        .playlist-container { flex-grow: 1; overflow-y: auto; padding-right: 5px; }
+        .playlist-item { padding: 12px 15px; border: none; background: transparent; width: 100%; text-align: left; font-size: 0.95em; border-radius: 6px; cursor: pointer; color: var(--text-color-primary); margin-bottom: 5px; transition: background-color 0.2s, color 0.3s; }
+        .playlist-item:hover { background-color: rgba(0, 0, 0, 0.05); }
+        body[data-theme="dark"] .playlist-item:hover { background-color: rgba(255, 255, 255, 0.05); }
+        .playlist-item.active { background-color: var(--primary-color); color: white; font-weight: 500; }
+        .empty-playlist-message { color: var(--text-color-secondary); height: 100%; display: flex; align-items: center; justify-content: center; }
+
+        /* --- Video Player Styles --- */
+        .player-container { width: 100%; position: relative; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); border-radius: 8px; overflow: hidden; background-color: #000; }
+        
+        /* CORRECTED Subtitle Styling Selector */
+        .player-container video::cue {
+            font-size: var(--subtitle-font-size);
+            color: var(--subtitle-text-color);
+            background-color: var(--subtitle-bg-color);
+            text-shadow: var(--subtitle-text-shadow);
+            font-family: var(--subtitle-font-family);
+        }
+        
+        .controls-container { opacity: 0; transition: opacity 0.3s ease-in-out, transform 0.4s ease-in-out; position: absolute; bottom: 0; left: 0; right: 0; background: var(--controls-bg); backdrop-filter: blur(5px); color: var(--text-color-primary); padding: 10px; }
+        body[data-theme="light"] .controls-container { color: #000; }
+        .player-container:not(.fullscreen):hover .controls-container, .player-container.controls-visible .controls-container { opacity: 1; }
+        .video { width: 100%; height: auto; display: block; }
+        .progress-range { height: 8px; width: calc(100% - 20px); margin: -15px auto 10px; background: rgba(0, 0, 0, 0.2); cursor: pointer; border-radius: 4px; }
+        body[data-theme="dark"] .progress-range { background: rgba(255, 255, 255, 0.4); }
+        .progress-bar { background: var(--primary-color); width: 0%; height: 100%; border-radius: 4px; transition: width 0.1s linear; }
+        .controls-group { display: flex; justify-content: space-between; align-items: center; }
+        .controls-left, .controls-right { display: flex; align-items: center; gap: 15px; }
+        .control-button { background: none; border: none; color: inherit; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
+        .control-button svg { width: 24px; height: 24px; transition: transform 0.2s; }
+        .control-button:hover svg { transform: scale(1.1); }
+        .hidden { display: none; }
+        .volume { display: flex; align-items: center; }
+        .volume-slider { width: 0; opacity: 0; transition: width 0.3s ease-in-out, opacity 0.3s ease-in-out; }
+        .volume:hover .volume-slider { width: 80px; opacity: 1; }
+        #subtitle-btn.active svg, #settings-btn.active svg { color: var(--primary-color); }
+        .player-container.fullscreen { max-width: none; width: 100%; height: 100%; border-radius: 0; }
+        .speed { position: relative; }
+        .speed-btn { font-weight: bold; font-size: 16px; width: 40px; }
+        .speed-options { position: absolute; bottom: 45px; left: 50%; transform: translateX(-50%); background: var(--controls-bg); border-radius: 6px; padding: 10px; margin: 0; list-style: none; display: none; }
+        .speed:hover .speed-options { display: block; }
+        .speed-options li { cursor: pointer; padding: 5px; border-radius: 2px; }
+        .speed-options li:hover, .speed-options li.active { background: var(--primary-color); }
+
+        /* Fullscreen Idle UI */
+        .player-container.fullscreen .controls-container { opacity: 1; transform: translateY(0); }
+        .player-container.fullscreen.player-idle .controls-container { transform: translateY(calc(100% - 5px)); opacity: 0.8; }
+        .player-container.fullscreen.player-idle:hover .controls-container { transform: translateY(0); opacity: 1; }
+        
+        /* Settings Menu Styling */
+        .settings-menu { position: absolute; bottom: 60px; right: 10px; background: var(--controls-bg); backdrop-filter: blur(10px); border-radius: 8px; padding: 15px; width: 280px; opacity: 0; visibility: hidden; transform: translateY(10px); transition: opacity 0.3s, transform 0.3s, visibility 0.3s; }
+        .settings-menu.visible { opacity: 1; visibility: visible; transform: translateY(0); }
+        .settings-menu h3 { margin-top: 0; font-size: 1em; color: inherit; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px; }
+        .setting { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .setting label { font-size: 0.9em; }
+        .setting select { background-color: var(--surface-color); color: var(--text-color-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 5px; font-family: 'Inter', sans-serif; max-width: 150px; }
+        /* Add this new CSS rule inside your <style> block */
+
+        /* --- Forced Hide for Controls via Keyboard --- */
+        .player-container.controls-hidden .controls-container {
+            opacity: 0;
+            transform: translateY(100%); /* Slide it completely out of view */
+            transition-delay: 0s; /* Make it hide instantly */
+        }
+        @media (max-width: 1200px) { .main-container { flex-direction: column; } }
+        @media (max-width: 600px) { body { padding: 1rem; } .header-container { flex-direction: column; gap: 15px; text-align: center;} h1 { margin: 0 auto; } }
+    </style>
+</head>
+
+<body data-theme="dark">
+
+    <div class="app-wrapper">
+        <header class="header-container">
+            <h1>Modern Media Player</h1>
+            <div class="theme-switcher">
+                <span class="theme-switcher-label">Light Mode</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="theme-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </header>
+
+        <main class="main-container">
+            <div class="player-wrapper">
+                <p class="instructions">Click the button below and select the folder containing your MP4 and SRT files.</p>
+                <button id="select-folder-btn" class="select-folder-btn">📁 Select Video Folder</button>
+                
+                <div class="player-container" id="player-container">
+                    <video class="video" id="video" poster="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjgwIDcyMCI+PHJlY3Qgd2lkdGg9IjEyODAiIGhlaWdodD0iNzIwIiBmaWxsPSIjMDAwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaGyPSJtaWRkbGUiIGZpbGw9IiNhYWEiIGZvbnQtc2l6ZT0iNDAiIGZvbnQtZmFtaWx5PSJJbnRlciI+U2VsZWN0IGEgVmlkZW8gZnJvbSB0aGUgUGxheWxpc3Q8L3RleHQ+PC9zdmc+">
+                    </video>
+            
+                    <div class="settings-menu" id="settings-menu">
+                        <h3>Subtitle Settings</h3>
+                        <div class="setting">
+                            <label for="font-size-select">Font Size</label>
+                            <select id="font-size-select">
+                                <option value="1rem">Small</option>
+                                <option value="1.25rem" selected>Medium</option>
+                                <option value="1.5rem">Large</option>
+                                <option value="1.75rem">Extra Large</option>
+                            </select>
+                        </div>
+                        <div class="setting">
+                            <label for="text-color-select">Text Color</label>
+                            <select id="text-color-select">
+                                <option value="#FFFFFF" selected>White</option>
+                                <option value="#FFFF00">Yellow</option>
+                                <option value="#00FFFF">Cyan</option>
+                                <option value="#00FF00">Green</option>
+                            </select>
+                        </div>
+                        <div class="setting">
+                            <label for="bg-color-select">Background</label>
+                            <select id="bg-color-select">
+                                <option value="rgba(0, 0, 0, 0.7)" selected>Transparent Black</option>
+                                <option value="rgba(0, 0, 0, 0)">None</option>
+                            </select>
+                        </div>
+                         <div class="setting">
+                            <label for="edge-style-select">Edge Style</label>
+                            <select id="edge-style-select">
+                                <option value="none" selected>None</option>
+                                <option value="0 0 5px rgba(0,0,0,0.8)">Drop Shadow</option>
+                                <option value="-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000">Outline</option>
+                            </select>
+                        </div>
+                        <div class="setting">
+                            <label for="font-family-select">Font Family</label>
+                            <select id="font-family-select">
+                                <option value="'Inter', sans-serif" selected>Modern</option>
+                                <option value="'Lora', serif">Classic</option>
+                                <option value="'Inconsolata', monospace">Typewriter</option>
+                                <option value="'Pacifico', cursive">Casual</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="controls-container">
+                        <div class="progress-range" title="Seek"><div class="progress-bar"></div></div>
+                        <div class="controls-group">
+                            <div class="controls-left">
+                                <button id="play-btn" class="control-button" title="Play"><svg class="icon-play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg><svg class="icon-pause hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg></button>
+                                <div class="volume"><button class="control-button" title="Mute"></button><input type="range" min="0" max="1" step="0.01" value="1" class="volume-slider"></div>
+                                <div class="time"><span class="time-elapsed">00:00 / </span><span class="time-duration">00:00</span></div>
+                            </div>
+                            <div class="controls-right">
+                                <div class="speed" title="Playback Speed"><button class="control-button speed-btn">1x</button><ul class="speed-options"><li data-speed="2">2x</li><li data-speed="1.5">1.5x</li><li data-speed="1" class="active">1x</li><li data-speed="0.5">0.5x</li></ul></div>
+                                <button class="control-button" id="subtitle-btn" title="Subtitles"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 12h4v2H4v-2zm10 6H4v-2h10v2zm6 0h-4v-2h4v2zm0-4H10v-2h10v2z"></path></svg></button>
+                                <button class="control-button" id="settings-btn" title="Settings"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"></path></svg></button>
+                                <button class="control-button" id="pip-btn" title="Picture-in-Picture"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"></path></svg></button>
+                                <button class="control-button" id="fullscreen-btn" title="Fullscreen"><svg class="icon-fullscreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"></path></svg><svg class="icon-fullscreen-exit hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"></path></svg></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="playlist-wrapper">
+                <h2>Playlist</h2>
+                <div id="playlist-container" class="playlist-container">
+                    <div class="empty-playlist-message">Your videos will appear here...</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- 1. DOM Element Selection ---
+        const playerContainer = document.getElementById('player-container');
+        const video = document.getElementById('video');
+        const playBtn = document.getElementById('play-btn');
+        const themeToggle = document.getElementById('theme-toggle');
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsMenu = document.getElementById('settings-menu');
+        const subtitleBtn = document.getElementById('subtitle-btn');
+        const fontSizeSelect = document.getElementById('font-size-select');
+        const textColorSelect = document.getElementById('text-color-select');
+        const bgColorSelect = document.getElementById('bg-color-select');
+        const edgeStyleSelect = document.getElementById('edge-style-select');
+        const fontFamilySelect = document.getElementById('font-family-select'); // New selection
+        // ... (other selections are implicitly used or can be listed here for clarity)
+        const selectFolderBtn = document.getElementById('select-folder-btn');
+        const playlistContainer = document.getElementById('playlist-container');
+
+        // --- 2. Global Variables ---
+        let idleTimer = null; // For fullscreen idle detection
+
+        // --- 3. THEME & SETTINGS LOGIC ---
+        function applySavedTheme() {
+            const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.body.dataset.theme = savedTheme;
+            themeToggle.checked = savedTheme === 'light';
+        }
+        function handleThemeChange() {
+            const newTheme = themeToggle.checked ? 'light' : 'dark';
+            document.body.dataset.theme = newTheme;
+            localStorage.setItem('theme', newTheme);
+        }
+        function applySubtitleStyle(property, value) {
+            playerContainer.style.setProperty(property, value);
+            localStorage.setItem(property, value);
+        }
+        function loadSubtitleSettings() {
+            const settings = {
+                '--subtitle-font-size': fontSizeSelect,
+                '--subtitle-text-color': textColorSelect,
+                '--subtitle-bg-color': bgColorSelect,
+                '--subtitle-text-shadow': edgeStyleSelect,
+                '--subtitle-font-family': fontFamilySelect, // Add new setting
+            };
+            for (const [property, selectElement] of Object.entries(settings)) {
+                const savedValue = localStorage.getItem(property);
+                if (savedValue) {
+                    selectElement.value = savedValue;
+                    playerContainer.style.setProperty(property, savedValue);
+                }
+            }
+        }
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            playerContainer.classList.remove('player-idle');
+            if (document.fullscreenElement) {
+                idleTimer = setTimeout(() => { playerContainer.classList.add('player-idle'); }, 2500);
+            }
+        }
+
+        // --- 4. CORE PLAYER & OTHER FUNCTIONS (Condensed for brevity, full logic is here) ---
+        // The full functionality for video playback, controls, etc., is included in this script block.
+        // This is the same robust logic from before, no changes needed here.
+        // All functions like srtToVtt, selectFolder, loadVideo, togglePlay, updateProgress, etc., are here.
+        let lastVolume = 1, isDragging = false, videoFiles = new Map();
+        function srtToVtt(srtText) { let vttText = "WEBVTT\n\n"; vttText += srtText.replace(/\{\\([ibu])\}/g, '</$1>').replace(/\{\\([ibu])1\}/g, '<$1>').replace(/,(\d{3})/g, '.$1').split('\n').map(line => line.trim()).join('\n'); return vttText; }
+        async function selectFolder() { try { const dirHandle = await window.showDirectoryPicker(); const mediaPairs = {}; for await (const entry of dirHandle.values()) { if (entry.kind !== 'file') continue; const fileName = entry.name; if (fileName.endsWith('.mp4')) { const baseName = fileName.substring(0, fileName.lastIndexOf('.')); if (!mediaPairs[baseName]) mediaPairs[baseName] = {}; mediaPairs[baseName].video = entry; } else if (fileName.endsWith('.srt')) { const baseName = fileName.substring(0, fileName.lastIndexOf('.')); const srtBaseName = baseName.substring(0, baseName.lastIndexOf('.')); if (!mediaPairs[srtBaseName]) mediaPairs[srtBaseName] = {}; mediaPairs[srtBaseName].subtitle = entry; } } videoFiles.clear(); playlistContainer.innerHTML = ''; const sortedKeys = Object.keys(mediaPairs).sort((a, b) => a.localeCompare(b, undefined, {numeric: true})); if (sortedKeys.length === 0) { playlistContainer.innerHTML = '<div class="empty-playlist-message">No valid video files found.</div>'; return; } for (const key of sortedKeys) { const pair = mediaPairs[key]; if (pair.video) { videoFiles.set(key, pair); const playlistItem = document.createElement('button'); playlistItem.className = 'playlist-item'; playlistItem.textContent = key; playlistItem.dataset.key = key; playlistContainer.appendChild(playlistItem); } } } catch (error) { console.error('Folder selection cancelled or failed:', error); } }
+        async function loadVideo(key) { const pair = videoFiles.get(key); if (!pair || !pair.video) return; const videoFile = await pair.video.getFile(); if (video.src) { URL.revokeObjectURL(video.src); } video.src = URL.createObjectURL(videoFile); const oldTrack = video.querySelector('track'); if (oldTrack) oldTrack.remove(); subtitleBtn.classList.remove('active'); if (pair.subtitle) { const subtitleFile = await pair.subtitle.getFile(); const srtText = await subtitleFile.text(); const vttText = srtToVtt(srtText); const vttBlob = new Blob([vttText], { type: 'text/vtt' }); const vttUrl = URL.createObjectURL(vttBlob); const track = document.createElement('track'); track.kind = 'subtitles'; track.label = 'English'; track.srclang = 'en'; track.src = vttUrl; track.default = true; video.appendChild(track); setTimeout(() => { const subtitlesTrack = Array.from(video.textTracks).find(t => t.kind === 'subtitles'); if (subtitlesTrack) { subtitlesTrack.mode = 'showing'; subtitleBtn.classList.add('active'); } }, 100); } document.querySelectorAll('.playlist-item').forEach(item => item.classList.toggle('active', item.dataset.key === key)); document.title = key; video.load(); const playPromise = video.play(); if (playPromise !== undefined) { playPromise.catch(error => { console.error("Playback was prevented:", error); updatePlayButton(); }); } }
+        function togglePlay() { video.paused ? video.play() : video.pause(); }
+        function updatePlayButton() { const playIcon = playBtn.querySelector('.icon-play'); const pauseIcon = playBtn.querySelector('.icon-pause'); playIcon.classList.toggle('hidden', !video.paused); pauseIcon.classList.toggle('hidden', video.paused); playBtn.setAttribute('title', video.paused ? 'Play' : 'Pause'); playerContainer.classList.toggle('controls-visible', video.paused); }
+        function formatTime(timeInSeconds) { const result = new Date(timeInSeconds * 1000).toISOString().substr(11, 8); return { minutes: result.substr(3, 2), seconds: result.substr(6, 2), hours: result.substr(0, 2) }; }
+        function updateProgress() { if (isNaN(video.duration)) return; const progressBar = document.querySelector('.progress-bar'); const timeElapsedEl = document.querySelector('.time-elapsed'); const timeDurationEl = document.querySelector('.time-duration'); progressBar.style.width = `${(video.currentTime / video.duration) * 100}%`; const elapsed = formatTime(video.currentTime); const duration = formatTime(video.duration); const elapsedStr = video.duration >= 3600 ? `${elapsed.hours}:${elapsed.minutes}:${elapsed.seconds}` : `${elapsed.minutes}:${elapsed.seconds}`; const durationStr = video.duration >= 3600 ? `${duration.hours}:${duration.minutes}:${duration.seconds}` : `${duration.minutes}:${duration.seconds}`; timeElapsedEl.textContent = `${elapsedStr} / `; timeDurationEl.textContent = durationStr; }
+        function setProgress(e) { const progressRange = document.querySelector('.progress-range'); const newTime = (e.offsetX / progressRange.offsetWidth) * video.duration; video.currentTime = newTime; }
+        // ... The rest of the player functions (volume, speed, fullscreen, etc.) are all here and correct.
+        function updateVolume() { const volumeSlider = document.querySelector('.volume-slider'); video.volume = volumeSlider.value; updateVolumeIcon(video.volume); }
+        function updateVolumeIcon(volume) { const volumeBtn = document.querySelector('.volume button'); volumeBtn.innerHTML = ''; let icon; if (volume > 0.7) icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg>'; else if (volume > 0.1) icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"></path></svg>'; else if (volume > 0) icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M7 9v6h4l5 5V4L11 9H7z"></path></svg>'; else icon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"></path></svg>'; volumeBtn.insertAdjacentHTML('beforeend', icon); volumeBtn.title = volume > 0 ? 'Mute' : 'Unmute'; }
+        function toggleMute() { const volumeSlider = document.querySelector('.volume-slider'); if (video.volume > 0) { lastVolume = video.volume; video.volume = 0; volumeSlider.value = 0; } else { video.volume = lastVolume; volumeSlider.value = lastVolume; } updateVolumeIcon(video.volume); }
+        function setSpeed(e) { if (e.target.tagName === 'LI') { const speedBtn = document.querySelector('.speed-btn'); const speedOptions = document.querySelector('.speed-options'); video.playbackRate = parseFloat(e.target.dataset.speed); speedBtn.textContent = `${e.target.dataset.speed}x`; speedOptions.querySelector('.active').classList.remove('active'); e.target.classList.add('active'); } }
+        function toggleSubtitles() { const subtitlesTrack = Array.from(video.textTracks).find(track => track.kind === 'subtitles'); if (subtitlesTrack) { const isShowing = subtitlesTrack.mode === 'showing'; subtitlesTrack.mode = isShowing ? 'hidden' : 'showing'; subtitleBtn.classList.toggle('active', !isShowing); } }
+        async function togglePictureInPicture() { if (document.pictureInPictureElement) { await document.exitPictureInPicture(); } else if (document.pictureInPictureEnabled) { await video.requestPictureInPicture(); } }
+        function toggleFullscreen() { if (!document.fullscreenElement) { playerContainer.requestFullscreen().catch(err => console.error(`Fullscreen Error: ${err.message}`)); } else { document.exitFullscreen(); } }
+        // Replace the old handleKeyPress function with this updated version
+
+        function handleKeyPress(e) {
+            // Ignore keyboard shortcuts if user is typing in an input or select box
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+            switch (e.key.toLowerCase()) {
+                case ' ': // Spacebar for Play/Pause
+                    e.preventDefault(); // Prevents page from scrolling down
+                    togglePlay();
+                    break;
+                
+                case 'm': // 'M' for Mute/Unmute
+                    toggleMute();
+                    break;
+
+                case 'f': // 'F' for Fullscreen
+                    toggleFullscreen();
+                    break;
+                
+                case 'h': // 'H' to Hide/Show controls
+                    playerContainer.classList.toggle('controls-hidden');
+                    break;
+                    
+                case 'arrowright': // Seek forward 5 seconds
+                    video.currentTime += 5;
+                    break;
+
+                case 'arrowleft': // Seek backward 5 seconds
+                    video.currentTime -= 5;
+                    break;
+            }
+        }
+        
+        // --- 5. EVENT LISTENERS ---
+        document.addEventListener('DOMContentLoaded', () => { applySavedTheme(); loadSubtitleSettings(); });
+        themeToggle.addEventListener('change', handleThemeChange);
+        settingsBtn.addEventListener('click', () => { settingsMenu.classList.toggle('visible'); settingsBtn.classList.toggle('active'); });
+        fontSizeSelect.addEventListener('change', (e) => applySubtitleStyle('--subtitle-font-size', e.target.value));
+        textColorSelect.addEventListener('change', (e) => applySubtitleStyle('--subtitle-text-color', e.target.value));
+        bgColorSelect.addEventListener('change', (e) => applySubtitleStyle('--subtitle-bg-color', e.target.value));
+        edgeStyleSelect.addEventListener('change', (e) => applySubtitleStyle('--subtitle-text-shadow', e.target.value));
+        fontFamilySelect.addEventListener('change', (e) => applySubtitleStyle('--subtitle-font-family', e.target.value)); // New listener
+        selectFolderBtn.addEventListener('click', selectFolder);
+        playlistContainer.addEventListener('click', (e) => { const item = e.target.closest('.playlist-item'); if (item) loadVideo(item.dataset.key); });
+        video.addEventListener('click', togglePlay); video.addEventListener('play', updatePlayButton); video.addEventListener('pause', updatePlayButton); video.addEventListener('timeupdate', updateProgress); video.addEventListener('canplay', updateProgress); video.addEventListener('volumechange', () => updateVolumeIcon(video.volume)); video.addEventListener('ended', updatePlayButton);
+        playBtn.addEventListener('click', togglePlay);
+        const volumeBtn = document.querySelector('.volume button'); const volumeSlider = document.querySelector('.volume-slider');
+        volumeBtn.addEventListener('click', toggleMute); volumeSlider.addEventListener('input', updateVolume);
+        const progressRange = document.querySelector('.progress-range'); const speedOptions = document.querySelector('.speed-options'); const pipBtn = document.getElementById('pip-btn'); const fullscreenBtn = document.getElementById('fullscreen-btn');
+        progressRange.addEventListener('click', setProgress); progressRange.addEventListener('mousedown', (e) => { isDragging = true; setProgress(e); }); document.addEventListener('mouseup', () => { isDragging = false; }); document.addEventListener('mouseout', () => { isDragging = false; }); progressRange.addEventListener('mousemove', (e) => { if (isDragging) { setProgress(e); } });
+        speedOptions.addEventListener('click', setSpeed);
+        pipBtn.addEventListener('click', togglePictureInPicture);
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+        // Replace the old listener with this corrected version
+        document.addEventListener('fullscreenchange', () => {
+            const isFull = !!document.fullscreenElement;
+            fullscreenBtn.classList.toggle('active', isFull);
+
+            // --- THIS IS THE FIX ---
+            // Add/remove the .fullscreen class on the container itself
+            playerContainer.classList.toggle('fullscreen', isFull);
+
+            if (isFull) {
+                // We have entered fullscreen: start listening for mouse movement
+                playerContainer.addEventListener('mousemove', resetIdleTimer);
+                resetIdleTimer(); // Start the timer immediately
+            } else {
+                // We have exited fullscreen: stop listening and clean up
+                playerContainer.removeEventListener('mousemove', resetIdleTimer);
+                clearTimeout(idleTimer);
+                playerContainer.classList.remove('player-idle');
+            }
+        });
+        document.addEventListener('keydown', handleKeyPress);
+    </script>
+</body>
+</html>
